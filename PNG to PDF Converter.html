@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ToolsBeacon — PNG → JPEG Converter</title>
+<style>
+  :root{
+    --bg:#ffffff;
+    --card:#e9e9e9;
+    --panel:#e9e9e9;
+    --text:#2e2c2c;
+    --muted:#6c757d;
+    --primary:#EF7726;
+    --primary-dark:#d86514;
+    --accent:#072B49;
+    --success:#28a745;
+    --danger:#dc3545;
+    --radius:12px;
+    --glass: rgba(255,255,255,0.6);
+    --shadow: 0 10px 30px rgba(16,24,40,0.08);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:24px;
+    background: linear-gradient(180deg,#ffffff 0%, #fffaf5 100%);
+    color:var(--text);
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    min-height:100vh;
+  }
+
+  .wrap{
+    width:100%;
+    max-width:980px;
+    background:var(--card);
+    border-radius:16px;
+    box-shadow:var(--shadow);
+    padding:22px;
+    display:block;
+    gap:18px;
+  }
+
+  .left {
+    padding:12px 12px 12px 12px;
+  }
+
+  .uploader {
+    border-radius:12px;
+    border:2px dashed #ffd7b8;
+    padding:22px;
+    display:flex;
+    gap:16px;
+    align-items:center;
+    background: linear-gradient(180deg, rgba(255,247,238,0.9), #fff);
+    transition: all .15s ease;
+    cursor:pointer;
+  }
+  .uploader.dragover{
+    transform:translateY(-4px);
+    box-shadow:0 10px 30px rgba(239,119,38,0.12);
+  }
+  .uploader .icon{
+    width:68px;height:68px;border-radius:12px;background:linear-gradient(135deg,#fff,#fff0);
+    display:flex;align-items:center;justify-content:center;border:1px solid rgba(0,0,0,0.03);
+  }
+  .uploader .text{font-weight:600;color:var(--accent)}
+  .uploader small{display:block;color:var(--muted);font-weight:500;margin-top:6px;font-size:13px}
+
+  .controls{
+    margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  }
+
+  .btn{
+    display:inline-flex;align-items:center;gap:10px;
+    border:0;padding:10px 14px;border-radius:999px;font-weight:700;cursor:pointer;
+    box-shadow:none;transition:transform .12s ease, background .12s ease;
+    color:#fff;font-size:14px;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn-primary{background:var(--primary);}
+  .btn-primary:hover{background:var(--primary-dark)}
+  .btn-ghost{background:transparent;border:1px solid rgba(0,0,0,0.06);color:var(--text)}
+  .btn-secondary{background:var(--accent)}
+
+  .file-list{margin-top:14px;display:flex;flex-direction:column;gap:10px;max-height:52vh;overflow:auto;padding-right:6px}
+  .file-item{
+    display:flex;gap:12px;align-items:center;padding:10px;border-radius:10px;background:white;border:1px solid rgba(0,0,0,0.03);
+  }
+  .file-thumb{width:64px;height:48px;border-radius:8px;object-fit:cover;border:1px solid rgba(0,0,0,0.04)}
+  .meta{flex:1;min-width:0}
+  .meta .name{font-weight:700;font-size:14px;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .meta .sub{font-size:12px;color:var(--muted);margin-top:6px}
+  .actions{display:flex;gap:8px;align-items:center}
+
+  .icon-btn{
+    width:38px;height:38px;border-radius:10px;border:0;background:transparent;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;color:var(--accent);
+    transition:transform .12s ease, opacity .12s ease, background .12s ease;
+  }
+  .icon-btn:active{transform:translateY(1px)}
+
+  .icon-btn.download{
+    background:transparent;color:var(--muted);opacity:0.9;
+  }
+  .icon-btn.download.enabled{
+    background:linear-gradient(90deg,var(--primary),var(--primary-dark));color:#fff;
+    box-shadow:0 6px 18px rgba(239,119,38,0.18);
+    opacity:1;
+  }
+
+  .icon-btn.remove{color:var(--danger)}
+  .icon-btn.move{color:var(--accent);opacity:0.7}
+  .icon-btn.move:hover{opacity:1;background:rgba(7,43,73,0.05)}
+  .small-pill{font-size:12px;padding:6px 8px;border-radius:999px;background:#f3f3f3;color:var(--muted);}
+
+  .status-line{margin-top:12px;color:var(--muted);font-size:13px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .hidden { display:none !important; }
+
+  .sort-control{
+    display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--text);
+    background:white;padding:8px 12px;border-radius:999px;border:1px solid rgba(0,0,0,0.06);
+  }
+  .sort-control label{display:flex;align-items:center;gap:4px;cursor:pointer;font-weight:500}
+  .sort-control input[type="radio"]{margin:0;cursor:pointer}
+
+  @media (max-width:960px){
+    .wrap{padding:16px}
+  }
+</style>
+</head>
+<body>
+  <div class="wrap" role="application" aria-label="PNG to JPEG converter">
+
+    <div class="left" >
+      <div id="dropZone" class="uploader" role="button" tabindex="0" aria-label="Drop PNG files here or click to select">
+        <div class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+            <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+            <g id="SVGRepo_iconCarrier"> 
+              <path d="M14.2647 15.9377L12.5473 14.2346C11.758 13.4519 11.3633 13.0605 10.9089 12.9137C10.5092 12.7845 10.079 12.7845 9.67922 12.9137C9.22485 13.0605 8.83017 13.4519 8.04082 14.2346L4.04193 18.2622M14.2647 15.9377L14.606 15.5991C15.412 14.7999 15.8149 14.4003 16.2773 14.2545C16.6839 14.1262 17.1208 14.1312 17.5244 14.2688C17.9832 14.4253 18.3769 14.834 19.1642 15.6515L20 16.5001M14.2647 15.9377L18.22 19.9628M18.22 19.9628C17.8703 20 17.4213 20 16.8 20H7.2C6.07989 20 5.51984 20 5.09202 19.782C4.7157 19.5903 4.40973 19.2843 4.21799 18.908C4.12583 18.7271 4.07264 18.5226 4.04193 18.2622M18.22 19.9628C18.5007 19.9329 18.7175 19.8791 18.908 19.782C19.2843 19.5903 19.5903 19.2843 19.782 18.908C20 18.4802 20 17.9201 20 16.8V13M11 4H7.2C6.07989 4 5.51984 4 5.09202 4.21799C4.7157 4.40973 4.40973 4.71569 4.21799 5.09202C4 5.51984 4 6.0799 4 7.2V16.8C4 17.4466 4 17.9066 4.04193 18.2622M18 9V6M18 6V3M18 6H21M18 6H15" stroke="#EF7726" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+          </svg>
+        </div>
+        <div style="text-align:left">
+          <div class="text">Drop PNG files here or click to select</div>
+          <small>Supports multiple files • Per-file & bulk download • Local only</small>
+        </div>
+      </div>
+
+      <input type="file" id="fileInput" accept="image/png" multiple style="display:none" aria-hidden="true">
+
+      <div class="controls" style="margin-top:12px">
+        <button id="btnConvertAll" class="btn btn-primary" title="Convert all queued files (Ctrl+Enter)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M7 10l5-5 5 5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Convert all
+        </button>
+
+        <button id="btnDownloadZip" class="btn btn-ghost hidden" title="Download all converted as ZIP" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 2h8l4 4v12a2 2 0 0 1-2 2H6z" stroke="#2e2c2c" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Download All
+        </button>
+
+        <button id="btnClear" class="btn btn-ghost" title="Clear list" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 6h18" stroke="#2e2c2c" stroke-width="1.4" stroke-linecap="round"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke="#2e2c2c" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v6M14 11v6" stroke="#2e2c2c" stroke-width="1.4" stroke-linecap="round"/></svg>
+          Clear
+        </button>
+
+        <div class="sort-control">
+          <span style="color:var(--muted);font-size:12px">Order:</span>
+          <label><input type="radio" name="sortOrder" value="none" checked> <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="vertical-align:middle"><path d="M3 4h18M3 12h12M3 20h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> Manual</label>
+          <label><input type="radio" name="sortOrder" value="newest"> <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="vertical-align:middle"><path d="M12 19V5M12 5l-7 7M12 5l7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Bottom to top</label>
+          <label><input type="radio" name="sortOrder" value="oldest"> <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="vertical-align:middle"><path d="M12 5v14M12 19l7-7M12 19l-7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Top to bottom</label>
+        </div>
+      </div>
+
+      <div class="status-line">
+        <div id="overallProgress" class="small-pill">0 / 0 done</div>
+        <div id="infoNote" style="color:var(--muted);font-size:13px">All conversions happen locally in your browser — no uploads.</div>
+      </div>
+
+      <div id="fileList" class="file-list" aria-live="polite" style="display:none;margin-top:12px"></div>
+    </div>
+
+  </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileList = document.getElementById('fileList');
+const btnConvertAll = document.getElementById('btnConvertAll');
+const btnDownloadZip = document.getElementById('btnDownloadZip');
+const btnClear = document.getElementById('btnClear');
+const overallProgress = document.getElementById('overallProgress');
+
+let queue = [];
+let concurrency = 2;
+overallProgress.textContent = '0 / 0 done';
+
+dropZone.addEventListener('click', ()=> fileInput.click());
+dropZone.addEventListener('keydown', (e)=> { if(e.key==='Enter' || e.key===' ') fileInput.click(); });
+
+dropZone.addEventListener('dragover', (e)=>{
+  e.preventDefault(); dropZone.classList.add('dragover');
+});
+dropZone.addEventListener('dragleave', (e)=>{ e.preventDefault(); dropZone.classList.remove('dragover'); });
+dropZone.addEventListener('drop', (e)=>{
+  e.preventDefault(); dropZone.classList.remove('dragover');
+  handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', (e)=> {
+  handleFiles(e.target.files);
+  e.target.value = '';
+});
+
+function handleFiles(fileListObj){
+  const files = Array.from(fileListObj);
+  let added = 0;
+  for(const f of files){
+    if(f.type !== 'image/png'){
+      alert(`Skipped non-PNG file: ${f.name}`);
+      continue;
+    }
+    const id = cryptoRandomId();
+    const item = { id, file:f, status:'queued', imageData:null, thumbURL:null, timestamp: Date.now() };
+    queue.push(item);
+    added++;
+  }
+  if(added) renderList();
+  updateControls();
+}
+
+function cryptoRandomId(){ return Math.random().toString(36).slice(2,9); }
+
+function renderList(){
+  fileList.innerHTML = '';
+  if(queue.length===0){ fileList.style.display='none'; return; }
+  fileList.style.display='block';
+  for(const item of queue){
+    const row = document.createElement('div');
+    row.className = 'file-item';
+    row.id = 'file-' + item.id;
+
+    const thumb = document.createElement('img');
+    thumb.className = 'file-thumb';
+    const originalURL = URL.createObjectURL(item.file);
+    thumb.src = originalURL;
+    thumb.alt = item.file.name;
+    thumb.onload = ()=> URL.revokeObjectURL(originalURL);
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    const name = document.createElement('div');
+    name.className = 'name';
+    name.textContent = item.file.name.replace(/\.[^/.]+$/,'');
+    const sub = document.createElement('div');
+    sub.className = 'sub';
+    sub.innerHTML = `${formatBytes(item.file.size)} • <span style="text-transform:lowercase">${item.file.type}</span>`;
+
+    meta.appendChild(name);
+    meta.appendChild(sub);
+
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+
+    const moveUpBtn = document.createElement('button');
+    moveUpBtn.className = 'icon-btn move';
+    moveUpBtn.title = 'Move up';
+    moveUpBtn.innerHTML = svgMoveUp();
+    moveUpBtn.addEventListener('click', ()=> moveItem(item.id, -1));
+
+    const moveDownBtn = document.createElement('button');
+    moveDownBtn.className = 'icon-btn move';
+    moveDownBtn.title = 'Move down';
+    moveDownBtn.innerHTML = svgMoveDown();
+    moveDownBtn.addEventListener('click', ()=> moveItem(item.id, 1));
+
+    const downloadBtn = document.createElement('button');
+    downloadBtn.className = 'icon-btn download hidden';
+    downloadBtn.title = 'Download converted';
+    downloadBtn.disabled = true;
+    downloadBtn.innerHTML = svgDownload();
+    downloadBtn.addEventListener('click', ()=> downloadCombinedPDF());
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'icon-btn remove';
+    removeBtn.title = 'Remove file';
+    removeBtn.innerHTML = svgRemove();
+    removeBtn.addEventListener('click', ()=> removeFromQueue(item.id));
+
+    actions.appendChild(moveUpBtn);
+    actions.appendChild(moveDownBtn);
+    actions.appendChild(downloadBtn);
+    actions.appendChild(removeBtn);
+
+    row.appendChild(thumb);
+    row.appendChild(meta);
+    row.appendChild(actions);
+
+    fileList.appendChild(row);
+
+    item._dom = { row, downloadBtn, nameElem:name, subElem:sub, thumbElem:thumb };
+    updateItemUI(item.id);
+  }
+  updateControls();
+}
+
+async function startQueueProcessing(){
+  updateControls();
+  let active = 0;
+  const next = async ()=>{
+    if(active >= concurrency) return;
+    const nextItem = queue.find(i=>i.status==='queued');
+    if(!nextItem) {
+      if(active === 0){}
+      return;
+    }
+    active++;
+    nextItem.status = 'converting';
+    updateItemUI(nextItem.id);
+    try{
+      await processPNGFile(nextItem);
+      nextItem.status = 'done';
+    }catch(err){
+      nextItem.status = 'error';
+      nextItem._error = err && err.message ? err.message : 'Conversion failed';
+    } finally {
+      updateItemUI(nextItem.id);
+      active--;
+      setTimeout(next, 20);
+    }
+  };
+
+  for(let i=0;i<concurrency;i++) next();
+
+  await new Promise(resolve=>{
+    const iv = setInterval(()=>{
+      if(!queue.some(q=>q.status==='queued' || q.status==='converting')){
+        clearInterval(iv);
+        resolve();
+      }
+    },200);
+  });
+}
+
+async function processPNGFile(item){
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  const imgBitmap = await createImageBitmap(item.file);
+  let width = imgBitmap.width;
+  let height = imgBitmap.height;
+  const MAX_DIM = 4096;
+  if(width > MAX_DIM || height > MAX_DIM){
+    const scale = MAX_DIM / Math.max(width, height);
+    width = Math.round(width * scale);
+    height = Math.round(height * scale);
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(imgBitmap, 0, 0, width, height);
+
+  await new Promise(resolve => setTimeout(resolve, 300));
+
+  const imageDataURL = canvas.toDataURL('image/png');
+  item.imageData = { dataURL: imageDataURL, width, height };
+  
+  await new Promise(resolve => setTimeout(resolve, 200));
+}
+
+async function downloadCombinedPDF(){
+  const ready = queue.filter(q=>q.status==='done' && q.imageData);
+  if(ready.length===0){
+    alert('No converted files to download');
+    return;
+  }
+
+  const sortOrder = document.querySelector('input[name="sortOrder"]:checked').value;
+  
+  let sorted;
+  if(sortOrder === 'none'){
+    sorted = ready;
+  } else {
+    sorted = [...ready].sort((a, b) => {
+      return sortOrder === 'newest' ? b.timestamp - a.timestamp : a.timestamp - b.timestamp;
+    });
+  }
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF();
+  
+  let isFirstPage = true;
+  for(const item of sorted){
+    if(!isFirstPage){
+      pdf.addPage();
+    }
+    isFirstPage = false;
+
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = item.imageData.width;
+    const imgHeight = item.imageData.height;
+
+    const imgRatio = imgWidth / imgHeight;
+    const pageRatio = pageWidth / pageHeight;
+
+    let finalWidth, finalHeight;
+    if(imgRatio > pageRatio){
+      finalWidth = pageWidth;
+      finalHeight = pageWidth / imgRatio;
+    } else {
+      finalHeight = pageHeight;
+      finalWidth = pageHeight * imgRatio;
+    }
+
+    const x = (pageWidth - finalWidth) / 2;
+    const y = (pageHeight - finalHeight) / 2;
+
+    pdf.addImage(item.imageData.dataURL, 'PNG', x, y, finalWidth, finalHeight);
+  }
+
+  pdf.save('ToolsBeacon_Converted.pdf');
+}
+
+function updateItemUI(id){
+  const item = queue.find(q=>q.id===id);
+  if(!item || !item._dom) return;
+  const dom = item._dom;
+  
+  if(item.status === 'done'){
+    dom.downloadBtn.disabled = false;
+    dom.downloadBtn.classList.remove('hidden');
+    dom.downloadBtn.classList.add('enabled');
+    dom.nameElem.textContent = item.file.name.replace(/\.[^/.]+$/,'');
+    dom.subElem.textContent = `Ready • will be included in PDF`;
+  } else if(item.status === 'error'){
+    dom.downloadBtn.classList.add('hidden');
+    dom.nameElem.textContent = item.file.name;
+    dom.subElem.textContent = `Error: ${item._error || 'conversion failed'}`;
+  } else if(item.status === 'converting'){
+    dom.downloadBtn.classList.add('hidden');
+    dom.subElem.textContent = `Converting...`;
+  } else {
+    dom.downloadBtn.classList.add('hidden');
+    dom.subElem.textContent = `Queued`;
+  }
+
+  const total = queue.length;
+  const done = queue.filter(q=>q.status==='done').length;
+  overallProgress.textContent = `${done} / ${total} done`;
+
+  if(done >= 1){
+    btnDownloadZip.classList.remove('hidden');
+    btnDownloadZip.disabled = false;
+  } else {
+    btnDownloadZip.classList.add('hidden');
+    btnDownloadZip.disabled = true;
+  }
+}
+
+function removeFromQueue(id){
+  const idx = queue.findIndex(q=>q.id===id);
+  if(idx>-1){
+    const item = queue[idx];
+    if(item.thumbURL) URL.revokeObjectURL(item.thumbURL);
+    queue.splice(idx,1);
+    const el = document.getElementById('file-'+id);
+    if(el) el.remove();
+    if(queue.length===0) fileList.style.display='none';
+    updateAllUI();
+  }
+}
+
+function moveItem(id, direction){
+  const idx = queue.findIndex(q=>q.id===id);
+  if(idx === -1) return;
+  
+  const newIdx = idx + direction;
+  if(newIdx < 0 || newIdx >= queue.length) return;
+  
+  const item = queue[idx];
+  queue.splice(idx, 1);
+  queue.splice(newIdx, 0, item);
+  
+  renderList();
+}
+
+btnConvertAll.addEventListener('click', async ()=>{
+  if(queue.length===0) return alert('No files queued');
+  queue.forEach(q=>{ if(q.status==='queued') q.status='queued'; });
+  renderList();
+  startQueueProcessing();
+});
+
+btnDownloadZip.addEventListener('click', async ()=>{
+  downloadCombinedPDF();
+});
+
+btnClear.addEventListener('click', ()=>{
+  queue.forEach(i=>{ if(i.thumbURL) URL.revokeObjectURL(i.thumbURL); });
+  queue = [];
+  fileList.innerHTML='';
+  fileList.style.display='none';
+  overallProgress.textContent = '0 / 0 done';
+  btnDownloadZip.classList.add('hidden');
+  btnDownloadZip.disabled = true;
+});
+
+function updateControls(){
+}
+
+function updateAllUI(){
+  for(const q of queue) updateItemUI(q.id);
+  if(queue.length===0) overallProgress.textContent = '0 / 0 done';
+  else {
+    const total = queue.length;
+    const done = queue.filter(q=>q.status==='done').length;
+    overallProgress.textContent = `${done} / ${total} done`;
+  }
+}
+
+function formatBytes(bytes){
+  if(bytes===0) return '0 B';
+  const k=1024; const sizes=['B','KB','MB','GB'];
+  const i = Math.floor(Math.log(bytes)/Math.log(k));
+  return parseFloat((bytes/Math.pow(k,i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function svgDownload(){ return `
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+  <path d="M12 3v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M8 11l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M21 19H3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+</svg>`; }
+function svgRemove(){ return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M6 18L18 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`; }
+function svgMoveUp(){ return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 19V5M12 5l-4 4M12 5l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`; }
+function svgMoveDown(){ return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M12 19l-4-4M12 19l4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`; }
+
+btnDownloadZip.classList.add('hidden');
+btnDownloadZip.disabled = true;
+overallProgress.textContent = '0 / 0 done';
+
+window.addEventListener('keydown', (e)=>{
+  if((e.ctrlKey || e.metaKey) && e.key === 'Enter'){ btnConvertAll.click(); }
+});
+</script>
+</body>
+</html>
